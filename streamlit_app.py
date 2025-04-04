@@ -11,7 +11,7 @@ st.set_page_config(page_title="TIAA CFPB NLP Dashboard", layout="wide")
 # 📦 Load Data
 @st.cache_data
 def load_data():
-    return pd.read_csv(r"C:\Users\reube\Downloads\streamlit_dashboard_project\streamlit_dashboard_project\150clusterbetter.csv")
+    return pd.read_csv(r"150clusterbetter.csv")
 
 df = load_data()
 
