@@ -4,7 +4,7 @@ from sklearn.utils import resample
 import pandas as pd
 
 # Load data
-df = pd.read_csv("/mnt/data/150clusterbetter.csv")
+df = pd.read_csv("150clusterbetter.csv")
 
 # Drop missing entries
 df = df.dropna(subset=["Consumer complaint narrative", "New Issue Tag"])
