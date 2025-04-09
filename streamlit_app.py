@@ -91,10 +91,10 @@ elif mode == "Visualize Categories":
         st.plotly_chart(fig, use_container_width=True)
 
     elif viz_type == "Bar (Horizontal)":
-        sorted_tags = tag_counts.sort_values("Count", ascending=True).reset_index(drop=True)
-        top_n = 5
-        bottom_n = 5
-        total = len(sorted_tags)
+    sorted_tags = tag_counts.sort_values("Count", ascending=True).reset_index(drop=True)
+    top_n = 5
+    bottom_n = 5
+    total = len(sorted_tags)
         colors = []
         for i in range(total):
             if i < bottom_n:
@@ -103,7 +103,9 @@ elif mode == "Visualize Categories":
                 colors.append("green")
             else:
                 colors.append("orange")
+
         sorted_tags["Color"] = colors
+
         fig = px.bar(
             sorted_tags,
             x="Count", y="Tag",
@@ -115,6 +117,7 @@ elif mode == "Visualize Categories":
         )
         fig.update_layout(showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
+
 
     elif viz_type == "Bubble Chart":
         fig = px.scatter(tag_counts, x='Tag', y='Count',
