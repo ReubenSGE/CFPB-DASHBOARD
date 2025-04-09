@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from sentence_transformers import SentenceTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import LabelEncoder
+from PIL import Image
 
 # ───────────────────────────────
 # 🔧 Page Config
@@ -18,49 +18,45 @@ def load_data():
 df = load_data()
 
 # ───────────────────────────────
-# 🧠 Train BERT-based Classifier
+# 🧠 Train Model
 @st.cache_resource
 def train_model():
-    clean_df = df.dropna(subset=["Consumer complaint narrative", "New Issue Tag"])
-    X_text = clean_df["Consumer complaint narrative"].tolist()
-    y = clean_df["New Issue Tag"]
+    train_df = df.dropna(subset=["Consumer complaint narrative", "New Issue Tag"])
+    X = train_df["Consumer complaint narrative"]
+    y = train_df["New Issue Tag"]
 
-    label_encoder = LabelEncoder()
-    y_encoded = label_encoder.fit_transform(y)
+    vectorizer = TfidfVectorizer(max_features=5000)
+    X_vec = vectorizer.fit_transform(X)
 
-    bert_model = SentenceTransformer("all-MiniLM-L6-v2")
-    X_embed = bert_model.encode(X_text, show_progress_bar=True)
+    model = LogisticRegression(max_iter=2000)
+    model.fit(X_vec, y)
 
-    classifier = LogisticRegression(max_iter=1000)
-    classifier.fit(X_embed, y_encoded)
+    return model, vectorizer
 
-    return classifier, bert_model, label_encoder
-
-model, embedder, encoder = train_model()
+model, vectorizer = train_model()
 
 # 📊 Preprocess for visualization
 tag_counts = df["New Issue Tag"].value_counts().reset_index()
 tag_counts.columns = ["Tag", "Count"]
 
 # ───────────────────────────────
-# 🔝 Centered Header
-st.markdown(
-    """
-    <div style='text-align: center;'>
-        <img src='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Consumer_Financial_Protection_Bureau_logo.svg/320px-Consumer_Financial_Protection_Bureau_logo.svg.png' width='100'/>
-        <h2 style='margin-top: 0;'>Consumer Complaint Categorization</h2>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+# 🔝 Header: CFPB Logo + Title
+st.markdown("<br>", unsafe_allow_html=True)
+col1, col2, col3 = st.columns([1, 6, 1])
+with col1:
+    st.image("cfpb_logo.png", width=100)
+with col2:
+    st.markdown("## Consumer Complaint Categorization")
+with col3:
+    st.empty()
 st.markdown("<hr>", unsafe_allow_html=True)
 
 # ───────────────────────────────
-# 🎛️ Sidebar
+# 🎛️ Sidebar Options
 option = st.sidebar.radio("Choose View", ["Predict Category", "View Visualizations"])
 
 # ───────────────────────────────
-# 🔍 Predict Mode
+# ✍️ Input Section
 if option == "Predict Category":
     st.subheader("Enter a Complaint Narrative")
     user_input = st.text_area("Type or paste a consumer complaint:")
@@ -72,16 +68,15 @@ if option == "Predict Category":
                 st.success("✅ Category Predicted (Exact Match):")
                 st.markdown(f"**Tag**: `{matched.iloc[0]['New Issue Tag']}`")
             else:
-                input_vec = embedder.encode([user_input])
-                prediction = model.predict(input_vec)[0]
-                predicted_tag = encoder.inverse_transform([prediction])[0]
-                st.success("✅ Category Predicted (BERT Model):")
+                X_input = vectorizer.transform([user_input])
+                predicted_tag = model.predict(X_input)[0]
+                st.success("✅ Category Predicted (Model):")
                 st.markdown(f"**Tag**: `{predicted_tag}`")
         else:
             st.info("Please enter a narrative.")
 
 # ───────────────────────────────
-# 📊 Visualization Mode
+# 📊 Visualization Section
 elif option == "View Visualizations":
     st.subheader("Complaint Category Visualization")
 
@@ -128,13 +123,12 @@ elif option == "View Visualizations":
         st.plotly_chart(fig, use_container_width=True)
 
 # ───────────────────────────────
-# 🔚 Centered Footer
+# 🔚 Footer
 st.markdown("<hr>", unsafe_allow_html=True)
-st.markdown(
-    """
-    <div style='text-align: center;'>
-        <h4>Powered by CFPB Open Consumer Complaint Data</h4>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+col1, col2, col3 = st.columns([1, 6, 1])
+with col1:
+    st.empty()
+with col2:
+    st.markdown("### Powered by CFPB Open Consumer Complaint Data", unsafe_allow_html=True)
+with col3:
+    st.image("cfpb_logo.png", width=100)
