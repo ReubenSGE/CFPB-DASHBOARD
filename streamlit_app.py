@@ -1,127 +1,29 @@
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sentence_transformers import SentenceTransformer
 from sklearn.linear_model import LogisticRegression
-from PIL import Image
+from sklearn.utils import resample
+import pandas as pd
 
-# ───────────────────────────────
-# 🔧 Page Config (Dark Theme)
-st.set_page_config(page_title="CFPB Complaint Dashboard", layout="wide")
+# Load data
+df = pd.read_csv("/mnt/data/150clusterbetter.csv")
 
-# ───────────────────────────────
-# 📦 Load Data
-@st.cache_data
-def load_data():
-    return pd.read_csv("150clusterbetter.csv")
+# Drop missing entries
+df = df.dropna(subset=["Consumer complaint narrative", "New Issue Tag"])
 
-df = load_data()
+# Balance the dataset: take max 150 per class
+balanced_df = df.groupby("New Issue Tag").apply(lambda x: x.sample(n=min(len(x), 150), random_state=42)).reset_index(drop=True)
 
-# ───────────────────────────────
-# 🧠 Train Lightweight Model
-@st.cache_resource
-def train_model():
-    train_df = df.dropna(subset=["Consumer complaint narrative", "New Issue Tag"])
-    X = train_df["Consumer complaint narrative"]
-    y = train_df["New Issue Tag"]
+# Sentence embeddings
+embedder = SentenceTransformer("all-MiniLM-L6-v2")
+X = embedder.encode(balanced_df["Consumer complaint narrative"].tolist(), show_progress_bar=True)
+y = balanced_df["New Issue Tag"].tolist()
 
-    vectorizer = TfidfVectorizer(max_features=3000)
-    X_vec = vectorizer.fit_transform(X)
+# Train model
+model = LogisticRegression(max_iter=2000)
+model.fit(X, y)
 
-    model = LogisticRegression(max_iter=1000)
-    model.fit(X_vec, y)
+# Save model and embedder
+import joblib
+joblib.dump(model, "/mnt/data/logreg_model.pkl")
+joblib.dump(embedder, "/mnt/data/embedder_model.pkl")
 
-    return model, vectorizer
-
-model, vectorizer = train_model()
-
-# ───────────────────────────────
-# 🖼️ CFPB Logo Header
-col1, col2, col3 = st.columns([1, 6, 1])
-with col1:
-    st.image("cfpb_logo.png", width=100)
-with col2:
-    st.markdown("<h2 style='text-align: center; color: white;'>Consumer Complaint Categorization</h2>", unsafe_allow_html=True)
-with col3:
-    st.empty()
-st.markdown("<hr>", unsafe_allow_html=True)
-
-# ───────────────────────────────
-# 🧭 Sidebar Mode Selector
-mode = st.sidebar.radio("Choose an option:", ["🔍 Predict Complaint Category", "📊 Visualize Complaint Categories"])
-
-# ───────────────────────────────
-# 🔍 Predict Mode
-if mode == "🔍 Predict Complaint Category":
-    st.subheader("Enter a Complaint Narrative")
-    user_input = st.text_area("Type or paste a consumer complaint:")
-
-    if st.button("🔎 Predict Category"):
-        if user_input.strip():
-            matched = df[df["Consumer complaint narrative"].str.strip().str.lower() == user_input.strip().lower()]
-            if not matched.empty:
-                st.success("✅ Category Predicted (Exact Match):")
-                st.markdown(f"**Tag**: `{matched.iloc[0]['New Issue Tag']}`")
-            else:
-                X_input = vectorizer.transform([user_input])
-                predicted_tag = model.predict(X_input)[0]
-                st.success("✅ Category Predicted (Model):")
-                st.markdown(f"**Tag**: `{predicted_tag}`")
-        else:
-            st.info("Please enter a narrative.")
-
-# ───────────────────────────────
-# 📊 Visualization Mode
-elif mode == "📊 Visualize Complaint Categories":
-    st.subheader("Complaint Category Visualization")
-
-    tag_counts = df["New Issue Tag"].value_counts().reset_index()
-    tag_counts.columns = ["Tag", "Count"]
-
-    viz_type = st.radio("Choose Visualization Style:", ["Treemap", "Bar (Horizontal)", "Bubble Chart"])
-
-    if viz_type == "Treemap":
-        fig = px.treemap(tag_counts, path=['Tag'], values='Count', title="Treemap of Complaint Categories")
-
-    elif viz_type == "Bar (Horizontal)":
-        sorted_tags = tag_counts.sort_values("Count", ascending=True).reset_index(drop=True)
-        top_n = 5
-        bottom_n = 5
-        total = len(sorted_tags)
-        colors = []
-        for i in range(total):
-            if i < bottom_n:
-                colors.append("red")
-            elif i >= total - top_n:
-                colors.append("green")
-            else:
-                colors.append("orange")
-        sorted_tags["Color"] = colors
-        fig = px.bar(
-            sorted_tags,
-            x="Count", y="Tag",
-            orientation='h',
-            title="Bar Chart of Complaint Categories",
-            color="Color",
-            color_discrete_map={"green": "green", "orange": "orange", "red": "red"},
-            height=800
-        )
-        fig.update_layout(showlegend=False)
-
-    elif viz_type == "Bubble Chart":
-        fig = px.scatter(tag_counts, x='Tag', y='Count',
-                         size='Count', color='Tag', size_max=60,
-                         title='Bubble Chart of Complaint Categories')
-        fig.update_layout(showlegend=False)
-
-    st.plotly_chart(fig, use_container_width=True)
-
-# ───────────────────────────────
-# 🔚 Footer
-st.markdown("<hr>", unsafe_allow_html=True)
-footer = """
-<div style='text-align: center; color: white;'>
-    <p>Powered by CFPB Open Consumer Complaint Data</p>
-</div>
-"""
-st.markdown(footer, unsafe_allow_html=True)
+"✅ Model and embedder successfully trained and saved."
