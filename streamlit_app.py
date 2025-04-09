@@ -1,17 +1,16 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from sentence_transformers import SentenceTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import LabelEncoder
 from PIL import Image
 
 # ───────────────────────────────
-# Page Config
-st.set_page_config(page_title="CFPB NLP Dashboard", layout="wide", initial_sidebar_state="expanded")
+# 🔧 Page Config
+st.set_page_config(page_title="CFPB NLP Dashboard", layout="wide")
 
 # ───────────────────────────────
-# Load Data
+# 📦 Load Data
 @st.cache_data
 def load_data():
     return pd.read_csv("150clusterbetter.csv")
@@ -19,45 +18,46 @@ def load_data():
 df = load_data()
 
 # ───────────────────────────────
-# Load Model & Encoder
+# 🧠 Train Model
 @st.cache_resource
 def train_model():
-    data = df.dropna(subset=["Consumer complaint narrative", "New Issue Tag"])
-    X = data["Consumer complaint narrative"]
-    y = data["New Issue Tag"]
+    train_df = df.dropna(subset=["Consumer complaint narrative", "New Issue Tag"])
+    X = train_df["Consumer complaint narrative"]
+    y = train_df["New Issue Tag"]
 
-    encoder = LabelEncoder()
-    y_encoded = encoder.fit_transform(y)
+    vectorizer = TfidfVectorizer(max_features=5000)
+    X_vec = vectorizer.fit_transform(X)
 
-    embedder = SentenceTransformer("all-MiniLM-L6-v2")
-    X_embed = embedder.encode(X.tolist(), show_progress_bar=True)
+    model = LogisticRegression(max_iter=2000)
+    model.fit(X_vec, y)
 
-    model = LogisticRegression(max_iter=1000)
-    model.fit(X_embed, y_encoded)
+    return model, vectorizer
 
-    return model, embedder, encoder
+model, vectorizer = train_model()
 
-model, embedder, encoder = train_model()
-
-# ───────────────────────────────
-# Sidebar Navigation
-mode = st.sidebar.radio("Select Mode", ["Predict Category", "Visualize Categories"])
+# 📊 Preprocess for visualization
+tag_counts = df["New Issue Tag"].value_counts().reset_index()
+tag_counts.columns = ["Tag", "Count"]
 
 # ───────────────────────────────
-# Header with CFPB logo
+# 🔝 Header: CFPB Logo + Title
 st.markdown("<br>", unsafe_allow_html=True)
 col1, col2, col3 = st.columns([1, 6, 1])
 with col1:
     st.image("cfpb_logo.png", width=100)
 with col2:
-    st.markdown("## Consumer Complaint Categorization", unsafe_allow_html=True)
+    st.markdown("## Consumer Complaint Categorization")
 with col3:
     st.empty()
 st.markdown("<hr>", unsafe_allow_html=True)
 
 # ───────────────────────────────
-# Predict Category
-if mode == "Predict Category":
+# 🎛️ Sidebar Options
+option = st.sidebar.radio("Choose View", ["Predict Category", "View Visualizations"])
+
+# ───────────────────────────────
+# ✍️ Input Section
+if option == "Predict Category":
     st.subheader("Enter a Complaint Narrative")
     user_input = st.text_area("Type or paste a consumer complaint:")
 
@@ -68,33 +68,30 @@ if mode == "Predict Category":
                 st.success("✅ Category Predicted (Exact Match):")
                 st.markdown(f"**Tag**: `{matched.iloc[0]['New Issue Tag']}`")
             else:
-                vector = embedder.encode([user_input])
-                prediction = model.predict(vector)[0]
-                tag = encoder.inverse_transform([prediction])[0]
+                X_input = vectorizer.transform([user_input])
+                predicted_tag = model.predict(X_input)[0]
                 st.success("✅ Category Predicted (Model):")
-                st.markdown(f"**Tag**: `{tag}`")
+                st.markdown(f"**Tag**: `{predicted_tag}`")
         else:
             st.info("Please enter a narrative.")
 
 # ───────────────────────────────
-# Visualize Categories
-elif mode == "Visualize Categories":
+# 📊 Visualization Section
+elif option == "View Visualizations":
     st.subheader("Complaint Category Visualization")
 
-    tag_counts = df["New Issue Tag"].value_counts().reset_index()
-    tag_counts.columns = ["Tag", "Count"]
-
-    viz_type = st.radio("Choose Visualization Style", ["Treemap", "Bar (Horizontal)", "Bubble Chart"])
+    viz_type = st.radio("Choose Visualization Style:", ["Treemap", "Bar (Horizontal)", "Bubble Chart"])
 
     if viz_type == "Treemap":
-        fig = px.treemap(tag_counts, path=["Tag"], values="Count", title="Treemap of Complaint Categories")
+        fig = px.treemap(tag_counts, path=['Tag'], values='Count', title="Treemap of Complaint Categories")
         st.plotly_chart(fig, use_container_width=True)
 
     elif viz_type == "Bar (Horizontal)":
-    sorted_tags = tag_counts.sort_values("Count", ascending=True).reset_index(drop=True)
-    top_n = 5
-    bottom_n = 5
-    total = len(sorted_tags)
+        sorted_tags = tag_counts.sort_values("Count", ascending=True).reset_index(drop=True)
+        top_n = 5
+        bottom_n = 5
+        total = len(sorted_tags)
+
         colors = []
         for i in range(total):
             if i < bottom_n:
@@ -118,7 +115,6 @@ elif mode == "Visualize Categories":
         fig.update_layout(showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
 
-
     elif viz_type == "Bubble Chart":
         fig = px.scatter(tag_counts, x='Tag', y='Count',
                          size='Count', color='Tag', size_max=60,
@@ -127,7 +123,7 @@ elif mode == "Visualize Categories":
         st.plotly_chart(fig, use_container_width=True)
 
 # ───────────────────────────────
-# Footer
+# 🔚 Footer
 st.markdown("<hr>", unsafe_allow_html=True)
 col1, col2, col3 = st.columns([1, 6, 1])
 with col1:
