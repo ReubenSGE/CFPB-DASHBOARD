@@ -121,4 +121,4 @@ with col1:
     st.empty()
 with col2:
     st.markdown("### Powered by CFPB Open Consumer Complaint Data", unsafe_allow_html=True)
-with col3
+with col3:
