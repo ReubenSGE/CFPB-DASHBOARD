@@ -3,27 +3,23 @@ import pandas as pd
 import plotly.express as px
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from PIL import Image
 
-# ───────────────────────────────
-# 🔧 Page Config (Dark Theme)
-st.set_page_config(page_title="CFPB Complaint Dashboard", layout="wide")
+# ─── Page Configuration ──────────────────────────────
+st.set_page_config(page_title="CFPB NLP Dashboard", layout="wide", initial_sidebar_state="expanded")
 
-# ───────────────────────────────
-# 📦 Load Data
+# ─── Load Data ───────────────────────────────────────
 @st.cache_data
 def load_data():
     return pd.read_csv("150clusterbetter.csv")
 
 df = load_data()
 
-# ───────────────────────────────
-# 🧠 Train Lightweight Model
+# ─── Train TF-IDF Model ──────────────────────────────
 @st.cache_resource
 def train_model():
-    train_df = df.dropna(subset=["Consumer complaint narrative", "New Issue Tag"])
-    X = train_df["Consumer complaint narrative"]
-    y = train_df["New Issue Tag"]
+    df_clean = df.dropna(subset=["Consumer complaint narrative", "New Issue Tag"])
+    X = df_clean["Consumer complaint narrative"]
+    y = df_clean["New Issue Tag"]
 
     vectorizer = TfidfVectorizer(max_features=3000)
     X_vec = vectorizer.fit_transform(X)
@@ -35,73 +31,60 @@ def train_model():
 
 model, vectorizer = train_model()
 
-# ───────────────────────────────
-# 🖼️ CFPB Logo Header
+# ─── Tag Frequency for Visuals ───────────────────────
+tag_counts = df["New Issue Tag"].value_counts().reset_index()
+tag_counts.columns = ["Tag", "Count"]
+
+# ─── HEADER ──────────────────────────────────────────
 col1, col2, col3 = st.columns([1, 6, 1])
 with col1:
     st.image("cfpb_logo.png", width=100)
 with col2:
-    st.markdown("<h2 style='text-align: center; color: white;'>Consumer Complaint Categorization</h2>", unsafe_allow_html=True)
+    st.markdown("## Consumer Complaint Categorization")
 with col3:
     st.empty()
 st.markdown("<hr>", unsafe_allow_html=True)
 
-# ───────────────────────────────
-# 🧭 Sidebar Mode Selector
-mode = st.sidebar.radio("Choose an option:", ["🔍 Predict Complaint Category", "📊 Visualize Complaint Categories"])
+# ─── SIDEBAR ─────────────────────────────────────────
+mode = st.sidebar.radio("Select Mode", ["🔍 Predict Issue", "📊 Visualize Categories"])
 
-# ───────────────────────────────
-# 🔍 Predict Mode
-if mode == "🔍 Predict Complaint Category":
+# ─── PREDICT MODE ────────────────────────────────────
+if mode == "🔍 Predict Issue":
     st.subheader("Enter a Complaint Narrative")
     user_input = st.text_area("Type or paste a consumer complaint:")
 
-    if st.button("🔎 Predict Category"):
+    if st.button("Predict Category"):
         if user_input.strip():
             matched = df[df["Consumer complaint narrative"].str.strip().str.lower() == user_input.strip().lower()]
             if not matched.empty:
-                st.success("✅ Category Predicted (Exact Match):")
+                st.success("✅ Exact Match Found")
                 st.markdown(f"**Tag**: `{matched.iloc[0]['New Issue Tag']}`")
             else:
-                X_input = vectorizer.transform([user_input])
-                predicted_tag = model.predict(X_input)[0]
-                st.success("✅ Category Predicted (Model):")
-                st.markdown(f"**Tag**: `{predicted_tag}`")
+                input_vec = vectorizer.transform([user_input])
+                prediction = model.predict(input_vec)[0]
+                st.success("✅ Model Prediction")
+                st.markdown(f"**Tag**: `{prediction}`")
         else:
             st.info("Please enter a narrative.")
 
-# ───────────────────────────────
-# 📊 Visualization Mode
-elif mode == "📊 Visualize Complaint Categories":
+# ─── VISUALIZATION MODE ─────────────────────────────
+elif mode == "📊 Visualize Categories":
     st.subheader("Complaint Category Visualization")
-
-    tag_counts = df["New Issue Tag"].value_counts().reset_index()
-    tag_counts.columns = ["Tag", "Count"]
-
     viz_type = st.radio("Choose Visualization Style:", ["Treemap", "Bar (Horizontal)", "Bubble Chart"])
 
     if viz_type == "Treemap":
-        fig = px.treemap(tag_counts, path=['Tag'], values='Count', title="Treemap of Complaint Categories")
+        fig = px.treemap(tag_counts, path=["Tag"], values="Count")
 
     elif viz_type == "Bar (Horizontal)":
         sorted_tags = tag_counts.sort_values("Count", ascending=True).reset_index(drop=True)
+        total = len(sorted_tags)
         top_n = 5
         bottom_n = 5
-        total = len(sorted_tags)
-        colors = []
-        for i in range(total):
-            if i < bottom_n:
-                colors.append("red")
-            elif i >= total - top_n:
-                colors.append("green")
-            else:
-                colors.append("orange")
+        colors = ["red" if i < bottom_n else "green" if i >= total - top_n else "orange" for i in range(total)]
         sorted_tags["Color"] = colors
+
         fig = px.bar(
-            sorted_tags,
-            x="Count", y="Tag",
-            orientation='h',
-            title="Bar Chart of Complaint Categories",
+            sorted_tags, x="Count", y="Tag", orientation='h',
             color="Color",
             color_discrete_map={"green": "green", "orange": "orange", "red": "red"},
             height=800
@@ -109,20 +92,17 @@ elif mode == "📊 Visualize Complaint Categories":
         fig.update_layout(showlegend=False)
 
     elif viz_type == "Bubble Chart":
-        fig = px.scatter(tag_counts, x='Tag', y='Count',
-                         size='Count', color='Tag', size_max=60,
-                         title='Bubble Chart of Complaint Categories')
+        fig = px.scatter(tag_counts, x='Tag', y='Count', size='Count', color='Tag', size_max=60)
         fig.update_layout(showlegend=False)
 
     st.plotly_chart(fig, use_container_width=True)
 
-# ───────────────────────────────
-# 🔚 Footer
+# ─── FOOTER ──────────────────────────────────────────
 st.markdown("<hr>", unsafe_allow_html=True)
-footer = """
-<div style='text-align: center; color: white;'>
-    <p>Powered by CFPB Open Consumer Complaint Data</p>
-    <img src='https://upload.wikimedia.org/wikipedia/commons/6/6b/Seal_of_the_Consumer_Financial_Protection_Bureau.svg' width='60'/>
-</div>
-"""
-st.markdown(footer, unsafe_allow_html=True)
+col1, col2, col3 = st.columns([1, 6, 1])
+with col1:
+    st.empty()
+with col2:
+    st.markdown("### Powered by CFPB Open Consumer Complaint Data")
+with col3:
+    st.empty()
