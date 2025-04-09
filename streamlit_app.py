@@ -23,7 +23,7 @@ model.fit(X, y)
 
 # Save model and embedder
 import joblib
-joblib.dump(model, "/mnt/data/logreg_model.pkl")
-joblib.dump(embedder, "/mnt/data/embedder_model.pkl")
+joblib.dump(model, "logreg_model.pkl")
+joblib.dump(embedder, "embedder_model.pkl")
 
 "✅ Model and embedder successfully trained and saved."
