@@ -6,11 +6,11 @@ from sklearn.linear_model import LogisticRegression
 from PIL import Image
 
 # ───────────────────────────────
-# 🔧 Page Config
+#Page Config
 st.set_page_config(page_title="CFPB NLP Dashboard", layout="wide")
 
 # ───────────────────────────────
-# 📦 Load Data
+# Load Data
 @st.cache_data
 def load_data():
     return pd.read_csv("150clusterbetter.csv")
@@ -18,7 +18,7 @@ def load_data():
 df = load_data()
 
 # ───────────────────────────────
-# 🧠 Train Model
+#Train Model
 @st.cache_resource
 def train_model():
     train_df = df.dropna(subset=["Consumer complaint narrative", "New Issue Tag"])
@@ -35,12 +35,12 @@ def train_model():
 
 model, vectorizer = train_model()
 
-# 📊 Preprocess for visualization
+#Preprocess for visualization
 tag_counts = df["New Issue Tag"].value_counts().reset_index()
 tag_counts.columns = ["Tag", "Count"]
 
 # ───────────────────────────────
-# 🔝 Header: CFPB Logo + Title
+#Header: CFPB Logo + Title
 st.markdown("<br>", unsafe_allow_html=True)
 col1, col2, col3 = st.columns([1, 6, 1])
 with col1:
@@ -52,11 +52,11 @@ with col3:
 st.markdown("<hr>", unsafe_allow_html=True)
 
 # ───────────────────────────────
-# 🎛️ Sidebar Options
+# Sidebar Options
 option = st.sidebar.radio("Choose View", ["Predict Category", "View Visualizations"])
 
 # ───────────────────────────────
-# ✍️ Input Section
+# Input Section
 if option == "Predict Category":
     st.subheader("Enter a Complaint Narrative")
     user_input = st.text_area("Type or paste a consumer complaint:")
@@ -65,18 +65,18 @@ if option == "Predict Category":
         if user_input.strip():
             matched = df[df["Consumer complaint narrative"].str.strip().str.lower() == user_input.strip().lower()]
             if not matched.empty:
-                st.success("✅ Category Predicted (Exact Match):")
+                st.success("Category Predicted (Exact Match):")
                 st.markdown(f"**Tag**: `{matched.iloc[0]['New Issue Tag']}`")
             else:
                 X_input = vectorizer.transform([user_input])
                 predicted_tag = model.predict(X_input)[0]
-                st.success("✅ Category Predicted (Model):")
+                st.success("Category Predicted (Model):")
                 st.markdown(f"**Tag**: `{predicted_tag}`")
         else:
             st.info("Please enter a narrative.")
 
 # ───────────────────────────────
-# 📊 Visualization Section
+# Visualization Section
 elif option == "View Visualizations":
     st.subheader("Complaint Category Visualization")
 
@@ -123,12 +123,10 @@ elif option == "View Visualizations":
         st.plotly_chart(fig, use_container_width=True)
 
 # ───────────────────────────────
-# 🔚 Footer
+# Footer
 st.markdown("<hr>", unsafe_allow_html=True)
 col1, col2, col3 = st.columns([1, 6, 1])
 with col1:
     st.empty()
 with col2:
     st.markdown("### Powered by CFPB Open Consumer Complaint Data", unsafe_allow_html=True)
-with col3:
-    st.image("cfpb_logo.png", width=100)
