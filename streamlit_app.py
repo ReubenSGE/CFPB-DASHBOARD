@@ -78,3 +78,44 @@ elif mode == "📊 View Complaint Category Distribution":
     if viz_type == "Treemap":
         fig = px.treemap(tag_counts, path=['Tag'], values='Count', title="Treemap of Complaint Categories")
     elif viz_type == "Bar (Horizontal)":
+        sorted_tags = tag_counts.sort_values("Count", ascending=True).reset_index(drop=True)
+        top_n = 5
+        bottom_n = 5
+        total = len(sorted_tags)
+        colors = []
+        for i in range(total):
+            if i < bottom_n:
+                colors.append("red")
+            elif i >= total - top_n:
+                colors.append("green")
+            else:
+                colors.append("orange")
+        sorted_tags["Color"] = colors
+
+        fig = px.bar(
+            sorted_tags,
+            x="Count", y="Tag",
+            orientation='h',
+            title="Bar Chart of Complaint Categories",
+            color="Color",
+            color_discrete_map={"green": "green", "orange": "orange", "red": "red"},
+            height=800
+        )
+        fig.update_layout(showlegend=False)
+    elif viz_type == "Bubble Chart":
+        fig = px.scatter(tag_counts, x='Tag', y='Count',
+                         size='Count', color='Tag', size_max=60,
+                         title='Bubble Chart of Complaint Categories')
+        fig.update_layout(showlegend=False)
+
+    st.plotly_chart(fig, use_container_width=True)
+
+# Footer
+st.markdown("<hr>", unsafe_allow_html=True)
+col1, col2, col3 = st.columns([1, 6, 1])
+with col1:
+    st.empty()
+with col2:
+    st.markdown("### Powered by CFPB Open Consumer Complaint Data", unsafe_allow_html=True)
+with col3:
+    st.image("cfpb_logo.png", width=100)
