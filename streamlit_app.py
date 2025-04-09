@@ -1,4 +1,3 @@
-pip install sentence-transformers
 from sentence_transformers import SentenceTransformer
 from sklearn.linear_model import LogisticRegression
 from sklearn.utils import resample
