@@ -122,7 +122,6 @@ st.markdown("<hr>", unsafe_allow_html=True)
 footer = """
 <div style='text-align: center; color: white;'>
     <p>Powered by CFPB Open Consumer Complaint Data</p>
-    <img src='https://upload.wikimedia.org/wikipedia/commons/6/6b/Seal_of_the_Consumer_Financial_Protection_Bureau.svg' width='60'/>
 </div>
 """
 st.markdown(footer, unsafe_allow_html=True)
