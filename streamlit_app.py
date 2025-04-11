@@ -1,10 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
+import joblib
 from sklearn.metrics import accuracy_score, classification_report
 
 # ───────────────────────────────
@@ -12,50 +9,30 @@ from sklearn.metrics import accuracy_score, classification_report
 st.set_page_config(page_title="CFPB NLP Dashboard", layout="wide")
 
 # ───────────────────────────────
-# 📦 Load Data (Optionally sample)
+# 📦 Load Data (for visualizations)
 @st.cache_data
 def load_data():
-    df = pd.read_csv("150clusterbetter.csv")
-    return df.sample(n=3000, random_state=42)  # Faster load
+    return pd.read_csv("150clusterbetter.csv").sample(n=1000, random_state=42)
 
 df = load_data()
 
 # ───────────────────────────────
-# 🧠 Train/Test + TF-IDF Classifier
+# 📦 Load Pretrained Components
 @st.cache_resource
-def train_model():
-    df_clean = df.dropna(subset=["Consumer complaint narrative", "New Issue Tag"])
-    X = df_clean["Consumer complaint narrative"]
-    y = df_clean["New Issue Tag"]
+def load_pretrained_model():
+    model = joblib.load("logreg_model.pkl")
+    vectorizer = joblib.load("tfidf_vectorizer.pkl")
+    label_encoder = joblib.load("label_encoder.pkl")
+    return model, vectorizer, label_encoder
 
-    label_encoder = LabelEncoder()
-    y_encoded = label_encoder.fit_transform(y)
+model, vectorizer, encoder = load_pretrained_model()
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
-    )
-
-    tfidf = TfidfVectorizer(max_features=3000)
-    X_train_vec = tfidf.fit_transform(X_train)
-    X_test_vec = tfidf.transform(X_test)
-
-    model = LogisticRegression(max_iter=1000)
-    model.fit(X_train_vec, y_train)
-
-    y_pred = model.predict(X_test_vec)
-    acc = accuracy_score(y_test, y_pred)
-    report = classification_report(y_test, y_pred, target_names=label_encoder.classes_, zero_division=0)
-
-    return model, tfidf, label_encoder, acc, report
-
-model, vectorizer, encoder, acc, report = train_model()
-
-# 📊 Tag counts
+# 📊 Tag Distribution
 tag_counts = df["New Issue Tag"].value_counts().reset_index()
 tag_counts.columns = ["Tag", "Count"]
 
 # ───────────────────────────────
-# 🔝 Centered Header
+# 🔝 Header
 st.markdown(
     """
     <div style='text-align: center;'>
@@ -72,7 +49,7 @@ st.markdown("<hr>", unsafe_allow_html=True)
 option = st.sidebar.radio("Choose View", ["Predict Category", "View Visualizations"])
 
 # ───────────────────────────────
-# 🔍 Prediction UI
+# 🔍 Predict Category
 if option == "Predict Category":
     st.subheader("Enter a Complaint Narrative")
     user_input = st.text_area("Type or paste a consumer complaint:")
@@ -85,19 +62,15 @@ if option == "Predict Category":
                 st.markdown(f"**Tag**: `{matched.iloc[0]['New Issue Tag']}`")
             else:
                 X_input = vectorizer.transform([user_input])
-                prediction = model.predict(X_input)[0]
-                predicted_tag = encoder.inverse_transform([prediction])[0]
-                st.success("✅ Category Predicted (TF-IDF Model):")
+                predicted_label = model.predict(X_input)[0]
+                predicted_tag = encoder.inverse_transform([predicted_label])[0]
+                st.success("✅ Category Predicted (Pretrained Model):")
                 st.markdown(f"**Tag**: `{predicted_tag}`")
         else:
             st.info("Please enter a narrative.")
 
-    with st.expander("📈 Model Evaluation on Test Set"):
-        st.markdown(f"**Accuracy:** `{acc:.2%}`")
-        st.text(report)
-
 # ───────────────────────────────
-# 📊 Visualization UI
+# 📊 Visualizations
 elif option == "View Visualizations":
     st.subheader("Complaint Category Visualization")
 
@@ -112,21 +85,15 @@ elif option == "View Visualizations":
         top_n = 5
         bottom_n = 5
         total = len(sorted_tags)
-
-        colors = []
-        for i in range(total):
-            if i < bottom_n:
-                colors.append("red")
-            elif i >= total - top_n:
-                colors.append("green")
-            else:
-                colors.append("orange")
-
+        colors = [
+            "red" if i < bottom_n else "green" if i >= total - top_n else "orange"
+            for i in range(total)
+        ]
         sorted_tags["Color"] = colors
 
         fig = px.bar(
             sorted_tags, x="Count", y="Tag",
-            orientation='h', title="Bar Chart of Complaint Categories",
+            orientation="h", title="Bar Chart of Complaint Categories",
             color="Color",
             color_discrete_map={"green": "green", "orange": "orange", "red": "red"},
             height=800
