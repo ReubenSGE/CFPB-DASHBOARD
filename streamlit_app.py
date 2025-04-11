@@ -80,7 +80,7 @@ if option == "Predict Category":
 elif option == "View Visualizations":
     st.subheader("Complaint Category Visualization")
 
-    viz_type = st.radio("Choose Visualization Style:", ["Treemap", "Bar (Horizontal)", "Bubble Chart"])
+    viz_type = st.radio("Choose Visualization Style:", ["Treemap", "Bar (Horizontal)", "Sunburst Chart"])
 
     if viz_type == "Treemap":
         fig = px.treemap(tag_counts, path=['Tag'], values='Count', title="Treemap of Complaint Categories")
@@ -115,16 +115,12 @@ elif option == "View Visualizations":
         fig.update_layout(showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
 
-    elif viz_type == "Bubble Chart":
-        fig = px.scatter(tag_counts, x='Tag', y='Count',
-                         size='Count', color='Tag', size_max=60,
-                         title='Bubble Chart of Complaint Categories')
-        fig.update_layout(showlegend=False)
+    elif viz_type == "Sunburst Chart":
+        fig = px.sunburst(tag_counts, path=['Tag'], values='Count', title="Sunburst of Complaint Categories")
         st.plotly_chart(fig, use_container_width=True)
 
 # ───────────────────────────────
-# ───────────────────────────────
-# 🔚 Footer with CFPB Logo on the Left and Centered Text
+# 🔚 Footer with Local CFPB Logo on the Left + Centered Text
 st.markdown("<hr>", unsafe_allow_html=True)
 footer_col1, footer_col2, footer_col3 = st.columns([1, 4, 1])
 
@@ -136,4 +132,3 @@ with footer_col2:
 
 with footer_col3:
     st.empty()
-
