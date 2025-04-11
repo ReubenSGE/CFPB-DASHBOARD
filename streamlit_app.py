@@ -130,9 +130,3 @@ with footer_col1:
     st.image("cfpb_logo.png", width=60)
 with footer_col2:
     st.markdown("### Powered by CFPB Open Consumer Complaint Data", unsafe_allow_html=True)
-'''
-
-# Save it
-file_path = Path("/mnt/data/streamlit_app.py")
-file_path.write_text(final_code)
-file_path.name
