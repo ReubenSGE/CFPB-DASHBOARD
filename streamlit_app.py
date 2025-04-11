@@ -123,10 +123,17 @@ elif option == "View Visualizations":
         st.plotly_chart(fig, use_container_width=True)
 
 # ───────────────────────────────
-# 🔚 Footer with Local CFPB Logo on the Left
+# ───────────────────────────────
+# 🔚 Footer with CFPB Logo on the Left and Centered Text
 st.markdown("<hr>", unsafe_allow_html=True)
-footer_col1, footer_col2 = st.columns([1, 6])
+footer_col1, footer_col2, footer_col3 = st.columns([1, 4, 1])
+
 with footer_col1:
     st.image("cfpb_logo.png", width=60)
+
 with footer_col2:
-    st.markdown("### Powered by CFPB Open Consumer Complaint Data", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: center;'>Powered by CFPB Open Consumer Complaint Data</h4>", unsafe_allow_html=True)
+
+with footer_col3:
+    st.empty()
+
