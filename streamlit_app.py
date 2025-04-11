@@ -1,11 +1,8 @@
-from pathlib import Path
-
-# Let's prepare the content for the main Streamlit app with pretrained model
-main_code = """
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import joblib
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
 from PIL import Image
 
 # ───────────────────────────────
@@ -20,28 +17,37 @@ def load_data():
 
 df = load_data()
 
+# ───────────────────────────────
+# 🧠 Train Model
+@st.cache_resource
+def train_model():
+    train_df = df.dropna(subset=["Consumer complaint narrative", "New Issue Tag"])
+    X = train_df["Consumer complaint narrative"]
+    y = train_df["New Issue Tag"]
+
+    vectorizer = TfidfVectorizer(max_features=5000)
+    X_vec = vectorizer.fit_transform(X)
+
+    model = LogisticRegression(max_iter=2000)
+    model.fit(X_vec, y)
+
+    return model, vectorizer
+
+model, vectorizer = train_model()
+
 # 📊 Preprocess for visualization
 tag_counts = df["New Issue Tag"].value_counts().reset_index()
 tag_counts.columns = ["Tag", "Count"]
 
 # ───────────────────────────────
-# 🧠 Load Pretrained Model
-@st.cache_resource
-def load_model():
-    model = joblib.load("model.pkl")
-    vectorizer = joblib.load("vectorizer.pkl")
-    return model, vectorizer
-
-model, vectorizer = load_model()
-
-# ───────────────────────────────
-# 🔝 Header
+# 🔝 Header: CFPB Logo + Title
 st.markdown("<br>", unsafe_allow_html=True)
 col1, col2, col3 = st.columns([1, 6, 1])
 with col1:
-    st.image("cfpb_logo.png", width=100)
+    st.empty()
 with col2:
-    st.markdown("<h2 style='text-align: center;'>Consumer Complaint Categorization</h2>", unsafe_allow_html=True)
+    st.image("cfpb_logo.png", width=100)
+    st.markdown("## Consumer Complaint Categorization", unsafe_allow_html=True)
 with col3:
     st.empty()
 st.markdown("<hr>", unsafe_allow_html=True)
@@ -74,6 +80,7 @@ if option == "Predict Category":
 # 📊 Visualization Section
 elif option == "View Visualizations":
     st.subheader("Complaint Category Visualization")
+
     viz_type = st.radio("Choose Visualization Style:", ["Treemap", "Bar (Horizontal)", "Bubble Chart"])
 
     if viz_type == "Treemap":
@@ -85,6 +92,7 @@ elif option == "View Visualizations":
         top_n = 5
         bottom_n = 5
         total = len(sorted_tags)
+
         colors = []
         for i in range(total):
             if i < bottom_n:
@@ -93,10 +101,18 @@ elif option == "View Visualizations":
                 colors.append("green")
             else:
                 colors.append("orange")
+
         sorted_tags["Color"] = colors
-        fig = px.bar(sorted_tags, x="Count", y="Tag", orientation='h',
-                     title="Bar Chart of Complaint Categories", color="Color",
-                     color_discrete_map={"green": "green", "orange": "orange", "red": "red"}, height=800)
+
+        fig = px.bar(
+            sorted_tags,
+            x="Count", y="Tag",
+            orientation='h',
+            title="Bar Chart of Complaint Categories",
+            color="Color",
+            color_discrete_map={"green": "green", "orange": "orange", "red": "red"},
+            height=800
+        )
         fig.update_layout(showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
 
@@ -110,9 +126,10 @@ elif option == "View Visualizations":
 # ───────────────────────────────
 # 🔚 Footer
 st.markdown("<hr>", unsafe_allow_html=True)
-st.markdown("<h4 style='text-align: center;'>Powered by CFPB Open Consumer Complaint Data</h4>", unsafe_allow_html=True)
-"""
-
-file_path = Path("/mnt/data/streamlit_app.py")
-file_path.write_text(main_code)
-file_path.name
+footer_col1, footer_col2, footer_col3 = st.columns([1, 6, 1])
+with footer_col1:
+    st.empty()
+with footer_col2:
+    st.markdown("### Powered by CFPB Open Consumer Complaint Data", unsafe_allow_html=True)
+with footer_col3:
+    st.empty()
