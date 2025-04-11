@@ -40,11 +40,10 @@ tag_counts = df["New Issue Tag"].value_counts().reset_index()
 tag_counts.columns = ["Tag", "Count"]
 
 # ───────────────────────────────
-# 🔝 Centered Header with CFPB Logo
+# 🔝 Centered Header with Title Only (No Image)
 st.markdown(
     """
     <div style='text-align: center;'>
-        <img src='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Consumer_Financial_Protection_Bureau_logo.svg/320px-Consumer_Financial_Protection_Bureau_logo.svg.png' width='100'/>
         <h2 style='margin-top: 0;'>Consumer Complaint Categorization</h2>
     </div>
     """,
@@ -124,13 +123,16 @@ elif option == "View Visualizations":
         st.plotly_chart(fig, use_container_width=True)
 
 # ───────────────────────────────
-# 🔚 Centered Footer (Text Only)
+# 🔚 Footer with Local CFPB Logo on the Left
 st.markdown("<hr>", unsafe_allow_html=True)
-st.markdown(
-    """
-    <div style='text-align: center;'>
-        <h4>Powered by CFPB Open Consumer Complaint Data</h4>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+footer_col1, footer_col2 = st.columns([1, 6])
+with footer_col1:
+    st.image("cfpb_logo.png", width=60)
+with footer_col2:
+    st.markdown("### Powered by CFPB Open Consumer Complaint Data", unsafe_allow_html=True)
+'''
+
+# Save it
+file_path = Path("/mnt/data/streamlit_app.py")
+file_path.write_text(final_code)
+file_path.name
