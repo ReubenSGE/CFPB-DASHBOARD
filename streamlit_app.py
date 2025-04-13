@@ -1,7 +1,3 @@
-from pathlib import Path
-
-# Rewriting the file again after kernel reset
-github_app_code = '''
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -128,8 +124,3 @@ with col2:
     st.markdown("<h4 style='text-align: center;'>Powered by CFPB Open Consumer Complaint Data</h4>", unsafe_allow_html=True)
 with col3:
     st.empty()
-'''
-
-file_path = Path("/mnt/data/streamlit_app_github_version.py")
-file_path.write_text(github_app_code)
-file_path.name
