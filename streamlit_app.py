@@ -1,35 +1,37 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import pickle
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import LabelEncoder
-from sklearn.manifold import TSNE
+from sklearn.linear_model import LogisticRegression
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
+import joblib
 
 # ─────────────────────────────────────────
 # 🔧 Page Config
 st.set_page_config(page_title="CFPB NLP Dashboard", layout="wide")
 
 # ─────────────────────────────────────────
-# 📦 Load Data and Models
+# 📦 Load Data and Model
 @st.cache_data
 def load_data():
     return pd.read_csv("150clusterbetter.csv")
 
-@st.cache_resource
-def load_models():
-    with open("sentence_transformer_10000.pkl", "rb") as f:
-        transformer = pickle.load(f)
-    with open("umap_model_10000.pkl", "rb") as f:
-        umap_model = pickle.load(f)
-    with open("cluster_umap_10000.pkl", "rb") as f:
-        cluster_data = pickle.load(f)
-    return transformer, umap_model, cluster_data
-
 df = load_data()
-transformer, umap_model, cluster_data = load_models()
+
+@st.cache_resource
+def train_model():
+    vectorizer = TfidfVectorizer(stop_words='english')
+    X = vectorizer.fit_transform(df["Consumer complaint narrative"].fillna(""))
+    y = df["New Issue Tag"]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    model = LogisticRegression(max_iter=1000)
+    model.fit(X_train, y_train)
+    return model, vectorizer
+
+model, vectorizer = train_model()
 
 # ─────────────────────────────────────────
 # 📊 Preprocess
@@ -47,7 +49,6 @@ st.markdown(
 # 🎛️ Sidebar Navigation
 option = st.sidebar.radio("Choose View", [
     "Predict Category",
-    "UMAP Cluster View",
     "Complaint Visualizations",
     "Word Cloud"
 ])
@@ -58,24 +59,13 @@ if option == "Predict Category":
     st.subheader("Enter a Complaint Narrative")
     text_input = st.text_area("Paste complaint here:")
 
-    if st.button("🔍 Predict Cluster"):
+    if st.button("🔍 Predict Category"):
         if text_input.strip():
-            embed = transformer.encode([text_input])
-            reduced = umap_model.transform(embed)
-            kmeans = KMeans(n_clusters=len(set(cluster_data['Cluster'])))
-            kmeans.fit(cluster_data[['X', 'Y']])
-            pred_label = kmeans.predict(reduced)
-            st.success(f"Predicted Cluster Label: {pred_label[0]}")
+            X_input = vectorizer.transform([text_input])
+            prediction = model.predict(X_input)
+            st.success(f"Predicted Category: {prediction[0]}")
         else:
             st.warning("Please enter a narrative.")
-
-# ─────────────────────────────────────────
-# 📍 UMAP Visualization
-elif option == "UMAP Cluster View":
-    st.subheader("Complaint Clusters (UMAP Projection)")
-    fig = px.scatter(cluster_data, x="X", y="Y", color="Cluster", hover_data=["Tag"],
-                     title="UMAP 2D Visualization of Complaint Clusters")
-    st.plotly_chart(fig, use_container_width=True)
 
 # ─────────────────────────────────────────
 # 📊 Complaint Visualizations
