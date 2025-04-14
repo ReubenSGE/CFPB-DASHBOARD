@@ -8,6 +8,8 @@ from sklearn.metrics import classification_report
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import joblib
+import re
+import string
 
 # ─────────────────────────────────────────
 # 🔧 Page Config
@@ -21,10 +23,23 @@ def load_data():
 
 df = load_data()
 
+# ─────────────────────────────────────────
+# 🔤 Text Cleaner
+stop_words = set(TfidfVectorizer(stop_words='english').get_stop_words())
+
+def clean_text(text):
+    text = text.lower()
+    text = re.sub(r'\d+', '', text)
+    text = text.translate(str.maketrans('', '', string.punctuation))
+    text = re.sub(r'\b[xX]+\b', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return ' '.join([word for word in text.split() if word not in stop_words])
+
 @st.cache_resource
 def train_model():
-    vectorizer = TfidfVectorizer(stop_words='english')
-    X = vectorizer.fit_transform(df["Consumer complaint narrative"].fillna(""))
+    vectorizer = TfidfVectorizer()
+    cleaned_text = df["Consumer complaint narrative"].fillna("").apply(clean_text)
+    X = vectorizer.fit_transform(cleaned_text)
     y = df["New Issue Tag"]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     model = LogisticRegression(max_iter=1000)
@@ -61,7 +76,8 @@ if option == "Predict Category":
 
     if st.button("🔍 Predict Category"):
         if text_input.strip():
-            X_input = vectorizer.transform([text_input])
+            cleaned_input = clean_text(text_input)
+            X_input = vectorizer.transform([cleaned_input])
             prediction = model.predict(X_input)
             st.success(f"Predicted Category: {prediction[0]}")
         else:
@@ -89,7 +105,7 @@ elif option == "Complaint Visualizations":
         st.plotly_chart(fig, use_container_width=True)
 
     elif viz_type == "Sunburst":
-        fig = px.sunburst(tag_counts, path=["Tag"], values="Count", title="Sunburst View")
+        fig = px.sunburst(tag_counts, path=["Tag"], values="Count", title="Sunburst View", height=800, width=800)
         st.plotly_chart(fig, use_container_width=True)
 
 # ─────────────────────────────────────────
@@ -97,7 +113,7 @@ elif option == "Complaint Visualizations":
 elif option == "Word Cloud":
     st.subheader("Word Cloud by Category")
     tag_choice = st.selectbox("Select a Tag", df["New Issue Tag"].unique())
-    text_data = " ".join(df[df["New Issue Tag"] == tag_choice]["Consumer complaint narrative"].dropna())
+    text_data = " ".join(df[df["New Issue Tag"] == tag_choice]["Consumer complaint narrative"].dropna().apply(clean_text))
     wordcloud = WordCloud(width=800, height=400, background_color="black").generate(text_data)
     fig, ax = plt.subplots()
     ax.imshow(wordcloud, interpolation="bilinear")
